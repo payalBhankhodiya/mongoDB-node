@@ -29,15 +29,32 @@ export const createPost = async (req, res) => {
 
 export const getAllPosts = async (req, res) => {
   try {
-    const posts = await Post.find().populate("author", "username");
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
+    const skip = (page - 1) * limit;
 
-    
+    const posts = await Post.find()
+      .populate("author", "username")
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 }); // latest posts first
+
     const postsWithLikes = posts.map(post => ({
       ...post.toObject(),
-      likeCount: post.likes.length, 
+      likeCount: post.likes.length,
     }));
 
-    res.status(200).json(postsWithLikes);
+    const total = await Post.countDocuments();
+
+    res.status(200).json({
+      data: postsWithLikes,
+      pagination: {
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        limit,
+      },
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -130,3 +147,9 @@ export const toggleLike = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+
+
+
+
+
