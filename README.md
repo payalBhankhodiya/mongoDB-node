@@ -4,3 +4,4 @@ npm i mongoose
 npm i bcrypt jsonwebtoken cookie-parser
 npm install --save-dev nodemon
 npm install dotenv
+npm install socket.io
