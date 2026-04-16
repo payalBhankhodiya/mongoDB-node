@@ -40,17 +40,13 @@ export const initSocket = (server) => {
       });
     });
 
-    // socket.on("typing", ({ roomId }) => {
-    //   socket.to(roomId).emit("typing", {
-    //     userId: socket.user.id,
-    //   });
-    // });
+    socket.on("typing", ({ roomId }) => {
+      socket.to(roomId).emit("typing", {
+        userId: socket.user.id,
+      });
+    });
 
-    // socket.on("stopTyping", ({ roomId }) => {
-    //   socket.to(roomId).emit("stopTyping", {
-    //     userId: socket.user.id,
-    //   });
-    // });
+
 
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);

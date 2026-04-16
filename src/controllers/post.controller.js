@@ -1,5 +1,7 @@
 import Post from "../models/post.model.js";
 import User from "../models/user.model.js";
+import { getIO } from "../socket/socket.js";
+import { sendNotification } from "../utils/sendNotification.js";
 
 export const createPost = async (req, res) => {
   try {
@@ -20,6 +22,8 @@ export const createPost = async (req, res) => {
       { $push: { posts: post._id } },
       { new: true },
     );
+    getIO().emit("postCreated", post);
+    getIO().to(req.user._id.toString()).emit("postCreated", post);
 
     res.status(201).json(post);
   } catch (err) {
@@ -39,7 +43,7 @@ export const getAllPosts = async (req, res) => {
       .limit(limit)
       .sort({ createdAt: -1 }); // latest posts first
 
-    const postsWithLikes = posts.map(post => ({
+    const postsWithLikes = posts.map((post) => ({
       ...post.toObject(),
       likeCount: post.likes.length,
     }));
@@ -70,12 +74,10 @@ export const getPostById = async (req, res) => {
     if (!post) {
       return res.status(404).json({ message: "Post not found" });
     }
-     res.status(200).json({
+    res.status(200).json({
       ...post.toObject(),
-      likeCount: post.likes.length, 
+      likeCount: post.likes.length,
     });
-
-    
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -110,7 +112,7 @@ export const deletePost = async (req, res) => {
 
     const post = await Post.findOneAndDelete(userId);
 
-    if (!post) {  
+    if (!post) {
       return res.status(404).json({ message: "Post not found" });
     }
 
@@ -132,24 +134,43 @@ export const toggleLike = async (req, res) => {
       return res.status(404).json({ error: "Post not found" });
     }
 
-    const isLiked = post.likes.includes(req.user.id);
+    const userId = req.user._id.toString();
+
+    const isLiked = post.likes.includes(userId);
 
     if (isLiked) {
-      post.likes.pull(req.user.id);
+      // UNLIKE
+      post.likes.pull(userId);
     } else {
-      post.likes.push(req.user.id);
+      // LIKE
+      post.likes.push(userId);
+      
+      // Send notification
+      if (post.author.toString() !== userId.toString()) {
+        try {
+          await sendNotification({
+            recipient: post.author,
+            sender: userId,
+            type: "like",
+            post: post._id,
+          });
+        } catch (err) {
+          console.log("Notification error:", err.message);
+        }
+      }
     }
 
     await post.save();
+
+    const io = getIO();
+
+    io.to(post.author.toString()).emit("postLiked", {
+      postId: post._id,
+      likes: post.likes,
+    });
 
     res.status(200).json(post);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
-
-
-
-
-
-
